@@ -26,7 +26,8 @@ export interface EditEffect {
 }
 
 export type ChatEffect = 'CHAT';
-export type HistoryEffect = EditEffectType | ChatEffect | null;
+export type CustomEditEffect = { type: 'CUSTOM', label: string };
+export type HistoryEffect = EditEffectType | ChatEffect | CustomEditEffect | null;
 
 export interface HistoryState {
   image: string; // Full-resolution base64

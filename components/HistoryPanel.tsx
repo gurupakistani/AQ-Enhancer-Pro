@@ -12,7 +12,11 @@ interface HistoryPanelProps {
 const getEffectLabel = (effectType: HistoryState['effectType']) => {
   if (effectType === null) return 'Original';
   if (effectType === 'CHAT') return 'Chat Edit';
-  return effectType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  if (typeof effectType === 'object' && effectType.type === 'CUSTOM') return effectType.label;
+  if (typeof effectType === 'string') {
+    return effectType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  }
+  return 'Edit';
 }
 
 export const HistoryPanel: React.FC<HistoryPanelProps> = React.memo(({ history, currentIndex, onSelect, isLoading }) => {

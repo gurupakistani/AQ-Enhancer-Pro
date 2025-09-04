@@ -1,8 +1,9 @@
 import React from 'react';
-import { EditEffect, EditEffectType } from '../types';
+import { EditEffect } from '../types';
 import { UndoIcon } from './icons/UndoIcon';
 import { RedoIcon } from './icons/RedoIcon';
 import { LoadingSpinner } from './LoadingSpinner';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 interface ControlPanelProps {
   effects: EditEffect[];
@@ -10,13 +11,14 @@ interface ControlPanelProps {
   onEdit: (effect: EditEffect) => void;
   onClear: () => void;
   isLoading: boolean;
-  activeEffect: EditEffectType | 'CHAT' | null;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
   showHistoryControls?: boolean;
   onStop: () => void;
+  selectedEffects: EditEffect[];
+  onStartProcessing: () => void;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({ 
@@ -25,14 +27,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   onEdit, 
   onClear, 
   isLoading, 
-  activeEffect,
   onUndo,
   onRedo,
   canUndo,
   canRedo,
   showHistoryControls = true,
-  onStop
+  onStop,
+  selectedEffects,
+  onStartProcessing,
 }) => {
+  const isEffectSelected = (effect: EditEffect) => selectedEffects.some(e => e.type === effect.type);
+
   return (
     <div className="relative bg-dark-card border border-dark-border rounded-2xl p-6">
       {isLoading && (
@@ -50,8 +55,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
       )}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-           <h3 className="text-2xl font-bold text-light-text">Choose a Preset Effect</h3>
-           <p className="text-medium-text mt-1">Select a one-click AI effect to transform your photo(s).</p>
+           <h3 className="text-2xl font-bold text-light-text">Choose Preset Effect(s)</h3>
+           <p className="text-medium-text mt-1">Select one or more AI effects to transform your photo(s).</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
           {showHistoryControls && (
@@ -91,7 +96,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
             onClick={() => onEdit(effect)}
             disabled={isLoading}
             className={`px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-card
-              ${activeEffect === effect.type 
+              ${isEffectSelected(effect) 
                 ? 'bg-brand-primary text-white ring-brand-primary' 
                 : 'bg-dark-border text-medium-text hover:bg-brand-primary/80 hover:text-white'
               }
@@ -112,7 +117,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
               onClick={() => onEdit(effect)}
               disabled={isLoading}
               className={`px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-card
-                ${activeEffect === effect.type 
+                ${isEffectSelected(effect) 
                   ? 'bg-brand-primary text-white ring-brand-primary' 
                   : 'bg-dark-border text-medium-text hover:bg-brand-primary/80 hover:text-white'
                 }
@@ -124,6 +129,18 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
           ))}
         </div>
       </div>
+      
+      <div className="mt-8 pt-6 border-t border-dark-border text-center">
+        <button
+          onClick={onStartProcessing}
+          disabled={isLoading || selectedEffects.length === 0}
+          className="w-full md:w-auto flex items-center justify-center gap-3 px-12 py-4 bg-brand-secondary text-white font-bold text-lg rounded-lg hover:bg-brand-secondary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-card focus:ring-brand-secondary transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100 transform active:scale-95"
+        >
+          <SparklesIcon className="w-6 h-6" />
+          Apply {selectedEffects.length > 0 ? `${selectedEffects.length} Effect(s)` : 'Effect(s)'}
+        </button>
+      </div>
+
     </div>
   );
 });

@@ -3,7 +3,7 @@ import { ImageDisplay } from './ImageDisplay';
 import { ControlPanel } from './ControlPanel';
 import { ChatPanel } from './ChatPanel';
 import { HistoryPanel } from './HistoryPanel';
-import { EditEffect, EditEffectType, HistoryState } from '../types';
+import { EditEffect, HistoryState } from '../types';
 
 interface EditorPanelProps {
   originalImage: string;
@@ -13,7 +13,6 @@ interface EditorPanelProps {
   onClear: () => void;
   effects: EditEffect[];
   aspectRatioEffects: EditEffect[];
-  activeEffect: EditEffectType | 'CHAT' | null;
   onChatSubmit: (prompt: string) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -23,6 +22,8 @@ interface EditorPanelProps {
   currentHistoryIndex: number;
   onHistorySelect: (index: number) => void;
   onStop: () => void;
+  selectedEffects: EditEffect[];
+  onStartProcessing: () => void;
 }
 
 export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
@@ -33,7 +34,6 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
   onClear,
   effects,
   aspectRatioEffects,
-  activeEffect,
   onChatSubmit,
   onUndo,
   onRedo,
@@ -43,6 +43,8 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
   currentHistoryIndex,
   onHistorySelect,
   onStop,
+  selectedEffects,
+  onStartProcessing,
 }) => {
   return (
     <div className="space-y-8">
@@ -67,13 +69,14 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
         onEdit={onEdit}
         onClear={onClear}
         isLoading={isLoading}
-        activeEffect={activeEffect}
         onUndo={onUndo}
         onRedo={onRedo}
         canUndo={canUndo}
         canRedo={canRedo}
         showHistoryControls={true}
         onStop={onStop}
+        selectedEffects={selectedEffects}
+        onStartProcessing={onStartProcessing}
       />
       <ChatPanel 
         onPromptSubmit={onChatSubmit}

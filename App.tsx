@@ -4,7 +4,7 @@ import { ImageUploader } from './components/ImageUploader';
 import { EditorPanel } from './components/EditorPanel';
 import { BatchEditorPanel } from './components/BatchEditorPanel';
 import { editImage } from './services/geminiService';
-import { EditEffect, HistoryState, BatchImage, HistoryEffect } from './types';
+import { EditEffect, HistoryState, BatchImage, HistoryEffect, CustomEditEffect } from './types';
 import { EDIT_EFFECTS, ASPECT_RATIO_EFFECTS } from './constants';
 import { createThumbnail } from './utils/imageUtils';
 
@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [originalImageMime, setOriginalImageMime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedEffects, setSelectedEffects] = useState<EditEffect[]>([]);
 
   const isCancelledRef = useRef(false);
 
@@ -25,6 +26,7 @@ const App: React.FC = () => {
     setOriginalImageMime(null);
     setError(null);
     setIsLoading(false);
+    setSelectedEffects([]);
     isCancelledRef.current = false;
   }, []);
 
@@ -115,6 +117,7 @@ const App: React.FC = () => {
       
       setHistory(newHistory);
       setCurrentHistoryIndex(newHistory.length - 1);
+      setSelectedEffects([]); // Clear selection after applying
 
     } catch (err) {
       if (isCancelledRef.current) return;
@@ -165,6 +168,7 @@ const App: React.FC = () => {
     }
     
     setIsLoading(false);
+    setSelectedEffects([]); // Clear selection after applying
     if(isCancelledRef.current) {
       setBatchImages(prev => prev.map(img => ({ ...img, isLoading: false })));
     }
@@ -172,12 +176,31 @@ const App: React.FC = () => {
   }, [batchImages]);
 
   const handlePresetEffect = useCallback((effect: EditEffect) => {
+    setSelectedEffects(prev => {
+      const isSelected = prev.some(e => e.type === effect.type);
+      if (isSelected) {
+        return prev.filter(e => e.type !== effect.type);
+      } else {
+        return [...prev, effect];
+      }
+    });
+  }, []);
+
+  const handleStartProcessing = useCallback(() => {
+    if (selectedEffects.length === 0) return;
+    const combinedPrompt = selectedEffects.map(e => e.prompt).join('. ');
+    
     if (batchImages.length > 0) {
-      applyBatchEdit(effect.prompt);
+      applyBatchEdit(combinedPrompt);
     } else {
-      applySingleEdit(effect.prompt, effect.type);
+      let historyLabel = selectedEffects.map(e => e.label).join(' & ');
+      if (historyLabel.length > 25) {
+        historyLabel = `${selectedEffects.length} Effects`;
+      }
+      const customEffect: CustomEditEffect = { type: 'CUSTOM', label: historyLabel };
+      applySingleEdit(combinedPrompt, customEffect);
     }
-  }, [batchImages.length, applyBatchEdit, applySingleEdit]);
+  }, [selectedEffects, batchImages.length, applyBatchEdit, applySingleEdit]);
   
   const handleChatSubmit = useCallback((prompt: string) => {
     if (batchImages.length > 0) {
@@ -201,7 +224,6 @@ const App: React.FC = () => {
 
   const originalImage = history.length > 0 ? history[0].image : null;
   const editedImage = currentHistoryIndex > 0 ? history[currentHistoryIndex].image : null;
-  const activeEffect = history[currentHistoryIndex]?.effectType;
   const canUndo = currentHistoryIndex > 0;
   const canRedo = currentHistoryIndex < history.length - 1;
   const hasImages = history.length > 0 || batchImages.length > 0;
@@ -226,6 +248,8 @@ const App: React.FC = () => {
             aspectRatioEffects={ASPECT_RATIO_EFFECTS}
             isLoading={globalLoading}
             onStop={handleStopProcessing}
+            selectedEffects={selectedEffects}
+            onStartProcessing={handleStartProcessing}
           />
         ) : (
           <EditorPanel
@@ -236,7 +260,6 @@ const App: React.FC = () => {
             onClear={handleClear}
             effects={EDIT_EFFECTS}
             aspectRatioEffects={ASPECT_RATIO_EFFECTS}
-            activeEffect={activeEffect}
             onChatSubmit={handleChatSubmit}
             onUndo={handleUndo}
             onRedo={handleRedo}
@@ -246,6 +269,8 @@ const App: React.FC = () => {
             currentHistoryIndex={currentHistoryIndex}
             onHistorySelect={handleHistorySelect}
             onStop={handleStopProcessing}
+            selectedEffects={selectedEffects}
+            onStartProcessing={handleStartProcessing}
           />
         )}
         {error && !isLoading && (

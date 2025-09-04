@@ -13,10 +13,12 @@ interface BatchEditorPanelProps {
   aspectRatioEffects: EditEffect[];
   onChatSubmit: (prompt: string) => void;
   onStop: () => void;
+  selectedEffects: EditEffect[];
+  onStartProcessing: () => void;
 }
 
 export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
-  images, isLoading, onEdit, onClear, effects, aspectRatioEffects, onChatSubmit, onStop
+  images, isLoading, onEdit, onClear, effects, aspectRatioEffects, onChatSubmit, onStop, selectedEffects, onStartProcessing
 }) => {
   const handleDummy = () => {};
 
@@ -28,13 +30,14 @@ export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
         onEdit={onEdit}
         onClear={onClear}
         isLoading={isLoading}
-        activeEffect={null}
         onUndo={handleDummy}
         onRedo={handleDummy}
         canUndo={false}
         canRedo={false}
         showHistoryControls={false}
         onStop={onStop}
+        selectedEffects={selectedEffects}
+        onStartProcessing={onStartProcessing}
       />
        <ChatPanel 
         onPromptSubmit={onChatSubmit}
