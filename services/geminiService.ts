@@ -6,8 +6,8 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const MAX_RETRIES = 4;
-const INITIAL_BACKOFF_MS = 3000;
+const MAX_RETRIES = 5;
+const INITIAL_BACKOFF_MS = 5000;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 

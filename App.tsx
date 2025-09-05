@@ -168,7 +168,7 @@ const App: React.FC = () => {
 
         // Add a small delay between requests to avoid hitting rate limits in batch mode
         if (i + CONCURRENCY_LIMIT < imagesToProcess.length && !isCancelledRef.current) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
     }
     
