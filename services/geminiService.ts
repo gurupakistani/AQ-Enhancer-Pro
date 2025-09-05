@@ -1,10 +1,41 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set. Please set it to your Google AI API key.");
+// Lazily initialized clients to avoid crashing the app on load if keys are missing.
+let aiClients: GoogleGenAI[] | null = null;
+let currentClientIndex = 0;
+
+/**
+ * Initializes and returns the array of GoogleGenAI clients if they haven't been already.
+ * This function is called on the first API request.
+ * Throws an error if no API keys are configured, which is then caught by the UI.
+ */
+function getAiClients(): GoogleGenAI[] {
+    if (aiClients) {
+        return aiClients;
+    }
+
+    const apiKeys = [process.env.API_KEY_1, process.env.API_KEY_2]
+        .filter(key => key && key !== 'undefined') as string[];
+
+    if (apiKeys.length === 0) {
+        throw new Error("API keys not configured. Please go to your Vercel project settings, add Environment Variables for API_KEY_1 and/or API_KEY_2, and redeploy.");
+    }
+
+    aiClients = apiKeys.map(apiKey => new GoogleGenAI({ apiKey }));
+    return aiClients;
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Returns the next available GoogleGenAI client instance in a round-robin fashion.
+ * This distributes the load across all configured API keys.
+ */
+function getNextAiInstance(): GoogleGenAI {
+    const clients = getAiClients();
+    const client = clients[currentClientIndex];
+    currentClientIndex = (currentClientIndex + 1) % clients.length;
+    return client;
+}
+
 
 const MAX_RETRIES = 8;
 const INITIAL_BACKOFF_MS = 7500;
@@ -17,11 +48,15 @@ export const editImage = async (
   prompt: string,
   onRetry?: (attempt: number, delay: number) => void
 ): Promise<string> => {
+  // getNextAiInstance will throw a user-friendly error if keys are missing.
+  // This error will be caught in the UI and displayed to the user.
+  const aiInstance = getNextAiInstance(); 
+
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
-      const response: GenerateContentResponse = await ai.models.generateContent({
+      const response: GenerateContentResponse = await aiInstance.models.generateContent({
         model: 'gemini-2.5-flash-image-preview',
         contents: {
           parts: [
@@ -72,10 +107,13 @@ export const editImage = async (
         if (isRateLimitError) {
           throw new Error(`The service is still busy after ${MAX_RETRIES} retries. This can happen on shared platforms due to high traffic. Please try again later.`);
         }
-        throw new Error(`Failed to edit image: ${lastError.message}`);
+        // For non-rate-limit errors, we shouldn't retry.
+        // Re-throw the original error to be handled by the UI.
+        throw lastError;
       }
     }
   }
   
-  throw new Error(`Failed to edit image after ${MAX_RETRIES} attempts. Last error: ${lastError?.message}`);
+  // This line is now only reachable if all retries for a rate limit error fail.
+  throw new Error(`Failed to edit image after ${MAX_RETRIES} attempts due to repeated rate limiting. Last error: ${lastError?.message}`);
 };
