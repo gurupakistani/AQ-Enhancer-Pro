@@ -1,10 +1,12 @@
-import React, { useState, useRef, useEffect, WheelEvent, MouseEvent } from 'react';
+import React, { useRef } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { PhotoIcon } from './icons/PhotoIcon';
 import { ZoomInIcon } from './icons/ZoomInIcon';
 import { ZoomOutIcon } from './icons/ZoomOutIcon';
 import { ResetZoomIcon } from './icons/ResetZoomIcon';
+import { ExpandIcon } from './icons/ExpandIcon';
+import { useImageZoom } from '../hooks/useImageZoom';
 
 interface ImageDisplayProps {
   title: string;
@@ -12,91 +14,32 @@ interface ImageDisplayProps {
   isLoading?: boolean;
   loadingMessage?: string;
   retryMessage?: string | null;
+  onFullscreen?: (imageUrl: string) => void;
 }
 
-export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isLoading = false, loadingMessage, retryMessage }) => {
-  const isEdited = title.toLowerCase() === 'edited' || title.toLowerCase() === 'result';
-  
-  const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
-  
+export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isLoading = false, loadingMessage, retryMessage, onFullscreen }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const isDownloadable = (title.toLowerCase() === 'edited' || title.toLowerCase() === 'result') && imageUrl && !isLoading;
 
-  const ZOOM_SENSITIVITY = 0.1;
-  const MIN_ZOOM = 1;
-  const MAX_ZOOM = 8;
-
-  const handleReset = () => {
-    setTransform({ scale: 1, x: 0, y: 0 });
-  };
-  
-  // Reset zoom when image URL changes
-  useEffect(() => {
-    handleReset();
-  }, [imageUrl]);
-
-  const handleZoom = (direction: 'in' | 'out', factor: number = ZOOM_SENSITIVITY * 2) => {
-    setTransform(prev => {
-        const newScale = direction === 'in' 
-            ? Math.min(prev.scale + factor, MAX_ZOOM) 
-            : Math.max(prev.scale - factor, MIN_ZOOM);
-        
-        if (newScale <= MIN_ZOOM) {
-            return { scale: 1, x: 0, y: 0 }; // Reset position when zoomed out completely
-        }
-        return { ...prev, scale: newScale };
-    });
-  };
-
-  const handleWheel = (e: WheelEvent<HTMLDivElement>) => {
-    if (!isEdited || !imageUrl || isLoading) return;
-    e.preventDefault();
-    const direction = e.deltaY < 0 ? 'in' : 'out';
-    handleZoom(direction, ZOOM_SENSITIVITY);
-  };
-  
-  const handleMouseDown = (e: MouseEvent<HTMLImageElement>) => {
-    if (transform.scale <= 1 || !isEdited || isLoading) return;
-    e.preventDefault();
-    setIsPanning(true);
-    setStartPan({
-      x: e.clientX - transform.x,
-      y: e.clientY - transform.y,
-    });
-  };
-
-  const handleMouseMove = (e: MouseEvent) => {
-    if (!isPanning) return;
-    e.preventDefault();
-    setTransform(prev => ({
-      ...prev,
-      x: e.clientX - startPan.x,
-      y: e.clientY - startPan.y,
-    }));
-  };
-  
-  const handleMouseUp = () => {
-    setIsPanning(false);
-  };
-  
-  const handleMouseLeave = () => {
-    setIsPanning(false);
-  };
-  
-  const imageCursorClass = () => {
-    if (!isEdited || isLoading) return 'cursor-default';
-    if (transform.scale > 1) {
-      return isPanning ? 'cursor-grabbing' : 'cursor-grab';
-    }
-    return 'cursor-default';
-  }
+  const {
+    transform,
+    handleReset,
+    handleZoom,
+    handleWheel,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUpOrLeave,
+    imageCursorClass,
+    canZoomIn,
+    canZoomOut,
+    canReset,
+  } = useImageZoom(containerRef, imageUrl, !isLoading && !!imageUrl);
 
   return (
     <div className="w-full space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-semibold text-light-text">{title}</h3>
-        {isEdited && imageUrl && !isLoading && (
+        {isDownloadable && (
           <a
             href={imageUrl}
             download={`edited-image-${Date.now()}.png`}
@@ -111,8 +54,8 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isL
         ref={containerRef}
         onWheel={handleWheel}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseUpOrLeave}
+        onMouseLeave={handleMouseUpOrLeave}
         className="relative group w-full aspect-square bg-dark-card rounded-2xl overflow-hidden border border-dark-border flex items-center justify-center"
       >
         {isLoading ? (
@@ -135,11 +78,11 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isL
               onMouseDown={handleMouseDown}
               draggable="false"
             />
-            {isEdited && (
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-full p-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
+            {imageUrl && !isLoading && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm rounded-full p-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
                 <button 
                   onClick={() => handleZoom('out')} 
-                  disabled={transform.scale <= MIN_ZOOM}
+                  disabled={!canZoomOut}
                   className="p-1.5 text-white rounded-full hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Zoom out"
                 >
@@ -147,7 +90,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isL
                 </button>
                 <button 
                   onClick={handleReset} 
-                  disabled={transform.scale === 1 && transform.x === 0 && transform.y === 0}
+                  disabled={!canReset}
                   className="p-1.5 text-white rounded-full hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Reset zoom"
                 >
@@ -155,19 +98,28 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isL
                 </button>
                 <button 
                   onClick={() => handleZoom('in')}
-                  disabled={transform.scale >= MAX_ZOOM}
+                  disabled={!canZoomIn}
                   className="p-1.5 text-white rounded-full hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Zoom in"
                 >
                   <ZoomInIcon className="w-6 h-6" />
                 </button>
+                {onFullscreen && (
+                   <button 
+                      onClick={() => onFullscreen(imageUrl)}
+                      className="p-1.5 text-white rounded-full hover:bg-white/20"
+                      aria-label="View fullscreen"
+                    >
+                      <ExpandIcon className="w-6 h-6" />
+                    </button>
+                )}
               </div>
             )}
           </>
         ) : (
           <div className="flex flex-col items-center text-center text-dark-text">
             <PhotoIcon className="w-16 h-16" />
-            <p className="mt-2 text-lg font-medium">{isEdited ? "Your enhanced image will now appear here" : "Placeholder"}</p>
+            <p className="mt-2 text-lg font-medium">{isDownloadable ? "Your enhanced image will now appear here" : "Placeholder"}</p>
           </div>
         )}
       </div>

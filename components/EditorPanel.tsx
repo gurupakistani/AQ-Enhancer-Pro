@@ -25,6 +25,7 @@ interface EditorPanelProps {
   selectedEffects: EditEffect[];
   onStartProcessing: () => void;
   retryMessage: string | null;
+  onFullscreen: (imageUrl: string) => void;
 }
 
 export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
@@ -47,17 +48,19 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
   selectedEffects,
   onStartProcessing,
   retryMessage,
+  onFullscreen,
 }) => {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <ImageDisplay title="Original" imageUrl={originalImage} />
+        <ImageDisplay title="Original" imageUrl={originalImage} onFullscreen={onFullscreen} />
         <ImageDisplay
           title="Edited"
           imageUrl={editedImage}
           isLoading={isLoading}
           loadingMessage="AI is enhancing your image..."
           retryMessage={retryMessage}
+          onFullscreen={onFullscreen}
         />
       </div>
       <HistoryPanel

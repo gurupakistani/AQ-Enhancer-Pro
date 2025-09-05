@@ -1,39 +1,26 @@
 import { GoogleGenAI, Modality, GenerateContentResponse } from "@google/genai";
 
-// Lazily initialized clients to avoid crashing the app on load if keys are missing.
-let aiClients: GoogleGenAI[] | null = null;
-let currentClientIndex = 0;
+// Lazily initialized client to avoid crashing the app on load if the key is missing.
+let aiClient: GoogleGenAI | null = null;
 
 /**
- * Initializes and returns the array of GoogleGenAI clients if they haven't been already.
+ * Initializes and returns the GoogleGenAI client if it hasn't been already.
  * This function is called on the first API request.
- * Throws an error if no API keys are configured, which is then caught by the UI.
+ * Throws an error if the API key is not configured, which is then caught by the UI.
  */
-function getAiClients(): GoogleGenAI[] {
-    if (aiClients) {
-        return aiClients;
+function getAiClient(): GoogleGenAI {
+    if (aiClient) {
+        return aiClient;
     }
 
-    const apiKeys = [process.env.API_KEY_1, process.env.API_KEY_2]
-        .filter(key => key && key !== 'undefined') as string[];
+    const apiKey = process.env.API_KEY;
 
-    if (apiKeys.length === 0) {
-        throw new Error("API keys not configured. Please go to your Vercel project settings, add Environment Variables for API_KEY_1 and/or API_KEY_2, and redeploy.");
+    if (!apiKey || apiKey === 'undefined') {
+        throw new Error("API key not configured. Please go to your Vercel project settings, add an Environment Variable for 'API_KEY', and then redeploy.");
     }
 
-    aiClients = apiKeys.map(apiKey => new GoogleGenAI({ apiKey }));
-    return aiClients;
-}
-
-/**
- * Returns the next available GoogleGenAI client instance in a round-robin fashion.
- * This distributes the load across all configured API keys.
- */
-function getNextAiInstance(): GoogleGenAI {
-    const clients = getAiClients();
-    const client = clients[currentClientIndex];
-    currentClientIndex = (currentClientIndex + 1) % clients.length;
-    return client;
+    aiClient = new GoogleGenAI({ apiKey });
+    return aiClient;
 }
 
 
@@ -48,9 +35,9 @@ export const editImage = async (
   prompt: string,
   onRetry?: (attempt: number, delay: number) => void
 ): Promise<string> => {
-  // getNextAiInstance will throw a user-friendly error if keys are missing.
+  // getAiClient will throw a user-friendly error if the key is missing.
   // This error will be caught in the UI and displayed to the user.
-  const aiInstance = getNextAiInstance(); 
+  const aiInstance = getAiClient(); 
 
   let lastError: Error | null = null;
 

@@ -72,26 +72,26 @@ export const ASPECT_RATIO_EFFECTS: EditEffect[] = [
   {
     type: EditEffectType.ASPECT_1_1,
     label: 'Square (1:1)',
-    prompt: 'Change the aspect ratio of this image to 1:1 (a perfect square). Do not crop the main subject. Intelligently fill any new space to preserve the original content.',
+    prompt: 'Add black bars to this image to create a perfect 1:1 square aspect ratio. The original image content must be centered and must not be cropped, scaled, or altered.',
   },
   {
     type: EditEffectType.ASPECT_4_5,
     label: 'Portrait (4:5)',
-    prompt: 'Change the aspect ratio of this image to 4:5 (a vertical portrait). Do not crop the main subject. Intelligently fill any new space to preserve the original content.',
+    prompt: 'Add black bars to the sides of this image to create a 4:5 vertical aspect ratio. The original image content must be centered and must not be cropped, scaled, or altered.',
   },
   {
     type: EditEffectType.ASPECT_9_16,
     label: 'Story (9:16)',
-    prompt: 'Change the aspect ratio of this image to 9:16 (a vertical story format). Do not crop the main subject. Intelligently fill any new space to preserve the original content.',
+    prompt: 'Add black bars to the sides of this image to create a 9:16 vertical aspect ratio. The original image content must be centered and must not be cropped, scaled, or altered.',
   },
   {
     type: EditEffectType.ASPECT_16_9,
     label: 'Widescreen (16:9)',
-    prompt: 'Change the aspect ratio of this image to 16:9 (a widescreen format). Do not crop the main subject. Intelligently fill any new space to preserve the original content.',
+    prompt: 'Add black bars to the top and bottom of this image to create a 16:9 widescreen aspect ratio. The original image content must be centered and must not be cropped, scaled, or altered.',
   },
   {
     type: EditEffectType.ASPECT_4_3,
     label: 'Classic (4:3)',
-    prompt: 'Change the aspect ratio of this image to 4:3 (a classic photo format). Do not crop the main subject. Intelligently fill any new space to preserve the original content.',
+    prompt: 'Add black bars to this image to create a 4:3 aspect ratio. The original image content must be centered and must not be cropped, scaled, or altered.',
   },
 ];

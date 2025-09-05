@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
 import { EditorPanel } from './components/EditorPanel';
 import { BatchEditorPanel } from './components/BatchEditorPanel';
+import { FullscreenViewer } from './components/FullscreenViewer';
 import { editImage } from './services/geminiService';
 import { EditEffect, HistoryState, BatchImage, HistoryEffect, CustomEditEffect } from './types';
 import { EDIT_EFFECTS, ASPECT_RATIO_EFFECTS } from './constants';
@@ -17,6 +18,7 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [selectedEffects, setSelectedEffects] = useState<EditEffect[]>([]);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const isCancelledRef = useRef(false);
 
@@ -231,6 +233,14 @@ const App: React.FC = () => {
   const handleHistorySelect = useCallback((index: number) => {
     setCurrentHistoryIndex(index);
   }, []);
+  
+  const handleFullscreen = useCallback((imageUrl: string) => {
+    setFullscreenImage(imageUrl);
+  }, []);
+
+  const handleCloseFullscreen = useCallback(() => {
+    setFullscreenImage(null);
+  }, []);
 
   const originalImage = history.length > 0 ? history[0].image : null;
   const editedImage = currentHistoryIndex > 0 ? history[currentHistoryIndex].image : null;
@@ -261,6 +271,7 @@ const App: React.FC = () => {
             selectedEffects={selectedEffects}
             onStartProcessing={handleStartProcessing}
             retryMessage={retryMessage}
+            onFullscreen={handleFullscreen}
           />
         ) : (
           <EditorPanel
@@ -283,6 +294,7 @@ const App: React.FC = () => {
             selectedEffects={selectedEffects}
             onStartProcessing={handleStartProcessing}
             retryMessage={retryMessage}
+            onFullscreen={handleFullscreen}
           />
         )}
         {error && !isLoading && (
@@ -293,6 +305,12 @@ const App: React.FC = () => {
             </div>
         )}
       </main>
+      {fullscreenImage && (
+        <FullscreenViewer
+          imageUrl={fullscreenImage}
+          onClose={handleCloseFullscreen}
+        />
+      )}
     </div>
   );
 };
