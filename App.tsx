@@ -165,6 +165,11 @@ const App: React.FC = () => {
             }
             return image;
         }));
+
+        // Add a small delay between requests to avoid hitting rate limits in batch mode
+        if (i + CONCURRENCY_LIMIT < imagesToProcess.length && !isCancelledRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
     }
     
     setIsLoading(false);
