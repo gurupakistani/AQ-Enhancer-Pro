@@ -19,7 +19,6 @@ interface ControlPanelProps {
   onStop: () => void;
   selectedEffects: EditEffect[];
   onStartProcessing: () => void;
-  retryMessage?: string | null;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({ 
@@ -36,7 +35,6 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   onStop,
   selectedEffects,
   onStartProcessing,
-  retryMessage,
 }) => {
   const isEffectSelected = (effect: EditEffect) => selectedEffects.some(e => e.type === effect.type);
 
@@ -46,11 +44,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
         <div className="absolute inset-0 bg-dark-card/80 backdrop-blur-sm flex flex-col justify-center items-center z-10 rounded-2xl p-4 text-center">
           <LoadingSpinner />
           <p className="text-lg font-semibold mt-4 text-light-text">AI is generating...</p>
-          {retryMessage ? (
-            <p className="text-yellow-400 text-sm mt-2">{retryMessage}</p>
-          ) : (
-            <p className="text-medium-text text-sm">This may take a moment.</p>
-          )}
+          <p className="text-medium-text text-sm mt-1">This may take a moment.</p>
           <button 
             onClick={onStop}
             className="mt-4 px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-card focus:ring-red-400 transition-colors"
@@ -95,7 +89,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {effects.map((effect) => (
           <button
             key={effect.type}
@@ -116,7 +110,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
 
       <div className="mt-6 pt-6 border-t border-dark-border">
         <h4 className="text-xl font-bold text-light-text mb-4">Change Aspect Ratio</h4>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {aspectRatioEffects.map((effect) => (
             <button
               key={effect.type}

@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Header } from './components/Header';
 import { ImageUploader } from './components/ImageUploader';
 import { EditorPanel } from './components/EditorPanel';
 import { BatchEditorPanel } from './components/BatchEditorPanel';
 import { FullscreenViewer } from './components/FullscreenViewer';
 import { editImage } from './services/geminiService';
+import { requestQueue } from './services/requestQueue';
 import { EditEffect, HistoryState, BatchImage, HistoryEffect, CustomEditEffect } from './types';
 import { EDIT_EFFECTS, ASPECT_RATIO_EFFECTS } from './constants';
 import { createThumbnail } from './utils/imageUtils';
@@ -16,19 +17,18 @@ const App: React.FC = () => {
   const [originalImageMime, setOriginalImageMime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [selectedEffects, setSelectedEffects] = useState<EditEffect[]>([]);
   const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
 
   const isCancelledRef = useRef(false);
 
   const handleClear = useCallback(() => {
+    requestQueue.clear(); // Clear any pending tasks
     setHistory([]);
     setBatchImages([]);
     setCurrentHistoryIndex(-1);
     setOriginalImageMime(null);
     setError(null);
-    setRetryMessage(null);
     setIsLoading(false);
     setSelectedEffects([]);
     isCancelledRef.current = false;
@@ -49,7 +49,7 @@ const App: React.FC = () => {
               editedURL: null,
               mimeType: file.type,
               base64: result.split(',')[1],
-              isLoading: false,
+              status: 'idle',
               error: null,
             });
             resolve();
@@ -85,17 +85,16 @@ const App: React.FC = () => {
   
   const handleStopProcessing = useCallback(() => {
     isCancelledRef.current = true;
+    requestQueue.clear();
     setIsLoading(false);
-    setRetryMessage(null);
     if(batchImages.length > 0) {
-      setBatchImages(prev => prev.map(img => ({ ...img, isLoading: false })));
+      setBatchImages(prev => prev.map(img => 
+        (img.status === 'queued' || img.status === 'processing') 
+        ? { ...img, status: 'idle' } 
+        : img
+      ));
     }
   }, [batchImages.length]);
-
-  const handleRetry = useCallback((attempt: number, delay: number) => {
-      const delayInSeconds = Math.round(delay / 1000);
-      setRetryMessage(`Service is busy. Retrying in ${delayInSeconds}s...`);
-  }, []);
 
   const applySingleEdit = useCallback(async (prompt: string, effectType: HistoryEffect) => {
     const currentImageState = history[currentHistoryIndex];
@@ -107,85 +106,93 @@ const App: React.FC = () => {
     isCancelledRef.current = false;
     setIsLoading(true);
     setError(null);
-    setRetryMessage(null);
 
-    try {
-      const base64Data = currentImageState.image.split(',')[1];
-      const resultBase64 = await editImage(base64Data, originalImageMime, prompt, handleRetry);
-      
-      if (isCancelledRef.current) return;
-      
-      setRetryMessage(null);
-      const newImageURL = `data:${originalImageMime};base64,${resultBase64}`;
-      const newThumbnail = await createThumbnail(newImageURL);
-      const newHistoryState: HistoryState = { 
-        image: newImageURL,
-        thumbnail: newThumbnail,
-        effectType 
-      };
-      
-      const newHistory = history.slice(0, currentHistoryIndex + 1);
-      newHistory.push(newHistoryState);
-      
-      setHistory(newHistory);
-      setCurrentHistoryIndex(newHistory.length - 1);
-      setSelectedEffects([]);
+    const task = async () => {
+        if (isCancelledRef.current) return;
+        try {
+            const base64Data = currentImageState.image.split(',')[1];
+            const resultBase64 = await editImage(base64Data, originalImageMime, prompt);
+            
+            if (isCancelledRef.current) return;
+            
+            const newImageURL = `data:${originalImageMime};base64,${resultBase64}`;
+            const newThumbnail = await createThumbnail(newImageURL);
+            const newHistoryState: HistoryState = { 
+                image: newImageURL,
+                thumbnail: newThumbnail,
+                effectType 
+            };
+            
+            setHistory(prevHistory => {
+                const newHistory = prevHistory.slice(0, currentHistoryIndex + 1);
+                newHistory.push(newHistoryState);
+                setCurrentHistoryIndex(newHistory.length - 1);
+                return newHistory;
+            });
+            setSelectedEffects([]);
 
-    } catch (err) {
-      if (isCancelledRef.current) return;
-      const errorMessage = err instanceof Error ? err.message : "An unknown error occurred during image processing.";
-      setError(`Error: ${errorMessage}.`);
-      console.error(err);
-    } finally {
-      if (!isCancelledRef.current) {
-        setIsLoading(false);
-      }
-      setRetryMessage(null);
-    }
-  }, [history, currentHistoryIndex, originalImageMime, handleRetry]);
+        } catch (err) {
+            if (isCancelledRef.current) return;
+            const errorMessage = err instanceof Error ? err.message : "An unknown error occurred.";
+            setError(`Error: ${errorMessage}.`);
+        } finally {
+            if (!isCancelledRef.current) {
+                setIsLoading(false);
+            }
+        }
+    };
+    
+    requestQueue.add(task);
 
-  const applyBatchEdit = useCallback(async (prompt: string) => {
+  }, [history, currentHistoryIndex, originalImageMime]);
+
+  const applyBatchEdit = useCallback((prompt: string) => {
     isCancelledRef.current = false;
     setIsLoading(true);
     setError(null);
-    setRetryMessage(null);
-    setBatchImages(prev => prev.map(img => ({ ...img, isLoading: true, error: null })));
+    setBatchImages(prev => prev.map(img => (img.status === 'idle' ? { ...img, status: 'queued', error: null } : img)));
 
-    const imagesToProcess = [...batchImages];
-    
-    for (const image of imagesToProcess) {
-        if (isCancelledRef.current) break;
+    const imagesToProcess = batchImages.filter(img => img.status === 'idle');
 
-        try {
-            const resultBase64 = await editImage(image.base64, image.mimeType, prompt, handleRetry);
-            if (isCancelledRef.current) break;
+    imagesToProcess.forEach(image => {
+        const task = async () => {
+            if (isCancelledRef.current) return;
 
             setBatchImages(prev => prev.map(img => 
-                img.id === image.id ? { ...img, editedURL: `data:${image.mimeType};base64,${resultBase64}`, isLoading: false } : img
+                img.id === image.id ? { ...img, status: 'processing' } : img
             ));
-        } catch (error) {
-            if (isCancelledRef.current) break;
-            const errorMessage = error instanceof Error ? error.message : "Unknown error";
-            setBatchImages(prev => prev.map(img => 
-                img.id === image.id ? { ...img, error: errorMessage, isLoading: false } : img
-            ));
-        } finally {
-            setRetryMessage(null);
-        }
 
-        if (imagesToProcess.indexOf(image) < imagesToProcess.length - 1 && !isCancelledRef.current) {
-            await new Promise(resolve => setTimeout(resolve, 3000));
-        }
-    }
+            try {
+                const resultBase64 = await editImage(image.base64, image.mimeType, prompt);
+                if (isCancelledRef.current) return;
+
+                setBatchImages(prev => prev.map(img => 
+                    img.id === image.id ? { ...img, editedURL: `data:${image.mimeType};base64,${resultBase64}`, status: 'success' } : img
+                ));
+            } catch (error) {
+                if (isCancelledRef.current) return;
+                const errorMessage = error instanceof Error ? error.message : "Unknown error";
+                setBatchImages(prev => prev.map(img => 
+                    img.id === image.id ? { ...img, error: errorMessage, status: 'error' } : img
+                ));
+            }
+        };
+        requestQueue.add(task);
+    });
     
-    setIsLoading(false);
     setSelectedEffects([]);
-    if (isCancelledRef.current) {
-      setBatchImages(prev => prev.map(img => ({ ...img, isLoading: false })));
+  }, [batchImages]);
+
+  const isBatchMode = batchImages.length > 0;
+
+  useEffect(() => {
+    if (isBatchMode) {
+        const isStillProcessing = batchImages.some(img => img.status === 'queued' || img.status === 'processing');
+        if (isLoading && !isStillProcessing) {
+            setIsLoading(false); 
+        }
     }
-
-  }, [batchImages, handleRetry]);
-
+  }, [batchImages, isBatchMode, isLoading]);
 
   const handlePresetEffect = useCallback((effect: EditEffect) => {
     setSelectedEffects(prev => {
@@ -247,8 +254,7 @@ const App: React.FC = () => {
   const canUndo = currentHistoryIndex > 0;
   const canRedo = currentHistoryIndex < history.length - 1;
   const hasImages = history.length > 0 || batchImages.length > 0;
-  const isBatchMode = batchImages.length > 0;
-  const globalLoading = isLoading || (isBatchMode && batchImages.some(img => img.isLoading));
+  const globalLoading = isLoading || (isBatchMode && batchImages.some(img => img.status === 'processing' || img.status === 'queued'));
 
   return (
     <div className="min-h-screen bg-dark-bg text-light-text font-sans">
@@ -270,7 +276,6 @@ const App: React.FC = () => {
             onStop={handleStopProcessing}
             selectedEffects={selectedEffects}
             onStartProcessing={handleStartProcessing}
-            retryMessage={retryMessage}
             onFullscreen={handleFullscreen}
           />
         ) : (
@@ -293,7 +298,6 @@ const App: React.FC = () => {
             onStop={handleStopProcessing}
             selectedEffects={selectedEffects}
             onStartProcessing={handleStartProcessing}
-            retryMessage={retryMessage}
             onFullscreen={handleFullscreen}
           />
         )}

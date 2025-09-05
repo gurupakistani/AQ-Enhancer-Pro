@@ -35,12 +35,14 @@ export interface HistoryState {
   effectType: HistoryEffect;
 }
 
+export type BatchImageStatus = 'idle' | 'queued' | 'processing' | 'success' | 'error';
+
 export interface BatchImage {
   id: string;
   originalURL: string;
   editedURL: string | null;
   mimeType: string;
   base64: string;
-  isLoading: boolean;
+  status: BatchImageStatus;
   error: string | null;
 }

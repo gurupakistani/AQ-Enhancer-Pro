@@ -24,7 +24,6 @@ interface EditorPanelProps {
   onStop: () => void;
   selectedEffects: EditEffect[];
   onStartProcessing: () => void;
-  retryMessage: string | null;
   onFullscreen: (imageUrl: string) => void;
 }
 
@@ -47,48 +46,50 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
   onStop,
   selectedEffects,
   onStartProcessing,
-  retryMessage,
   onFullscreen,
 }) => {
   return (
-    <div className="space-y-8">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+      {/* Main Content Area */}
+      <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-8">
         <ImageDisplay title="Original" imageUrl={originalImage} onFullscreen={onFullscreen} />
         <ImageDisplay
           title="Edited"
           imageUrl={editedImage}
           isLoading={isLoading}
           loadingMessage="AI is enhancing your image..."
-          retryMessage={retryMessage}
           onFullscreen={onFullscreen}
         />
       </div>
-      <HistoryPanel
-        history={history}
-        currentIndex={currentHistoryIndex}
-        onSelect={onHistorySelect}
-        isLoading={isLoading}
-      />
-      <ControlPanel
-        effects={effects}
-        aspectRatioEffects={aspectRatioEffects}
-        onEdit={onEdit}
-        onClear={onClear}
-        isLoading={isLoading}
-        onUndo={onUndo}
-        onRedo={onRedo}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        showHistoryControls={true}
-        onStop={onStop}
-        selectedEffects={selectedEffects}
-        onStartProcessing={onStartProcessing}
-        retryMessage={retryMessage}
-      />
-      <ChatPanel 
-        onPromptSubmit={onChatSubmit}
-        isLoading={isLoading}
-      />
+
+      {/* Sidebar */}
+      <div className="lg:col-span-1 space-y-8 lg:sticky lg:top-24 h-max">
+        <ControlPanel
+          effects={effects}
+          aspectRatioEffects={aspectRatioEffects}
+          onEdit={onEdit}
+          onClear={onClear}
+          isLoading={isLoading}
+          onUndo={onUndo}
+          onRedo={onRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          showHistoryControls={true}
+          onStop={onStop}
+          selectedEffects={selectedEffects}
+          onStartProcessing={onStartProcessing}
+        />
+        <ChatPanel 
+          onPromptSubmit={onChatSubmit}
+          isLoading={isLoading}
+        />
+        <HistoryPanel
+          history={history}
+          currentIndex={currentHistoryIndex}
+          onSelect={onHistorySelect}
+          isLoading={isLoading}
+        />
+      </div>
     </div>
   );
 });

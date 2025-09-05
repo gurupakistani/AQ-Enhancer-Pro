@@ -15,12 +15,11 @@ interface BatchEditorPanelProps {
   onStop: () => void;
   selectedEffects: EditEffect[];
   onStartProcessing: () => void;
-  retryMessage: string | null;
   onFullscreen: (imageUrl: string) => void;
 }
 
 export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
-  images, isLoading, onEdit, onClear, effects, aspectRatioEffects, onChatSubmit, onStop, selectedEffects, onStartProcessing, retryMessage, onFullscreen
+  images, isLoading, onEdit, onClear, effects, aspectRatioEffects, onChatSubmit, onStop, selectedEffects, onStartProcessing, onFullscreen
 }) => {
   const handleDummy = () => {};
 
@@ -40,7 +39,6 @@ export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
         onStop={onStop}
         selectedEffects={selectedEffects}
         onStartProcessing={onStartProcessing}
-        retryMessage={retryMessage}
       />
        <ChatPanel 
         onPromptSubmit={onChatSubmit}
@@ -56,9 +54,8 @@ export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
               <ImageDisplay
                 title="Result"
                 imageUrl={image.editedURL || image.originalURL}
-                isLoading={image.isLoading}
-                loadingMessage="Enhancing..."
-                retryMessage={image.isLoading ? retryMessage : null}
+                isLoading={image.status === 'processing' || image.status === 'queued'}
+                loadingMessage={image.status === 'queued' ? 'Queued...' : 'Enhancing...'}
                 onFullscreen={onFullscreen}
               />
               {image.error && (

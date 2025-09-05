@@ -13,11 +13,10 @@ interface ImageDisplayProps {
   imageUrl: string | null;
   isLoading?: boolean;
   loadingMessage?: string;
-  retryMessage?: string | null;
   onFullscreen?: (imageUrl: string) => void;
 }
 
-export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isLoading = false, loadingMessage, retryMessage, onFullscreen }) => {
+export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isLoading = false, loadingMessage, onFullscreen }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const isDownloadable = (title.toLowerCase() === 'edited' || title.toLowerCase() === 'result') && imageUrl && !isLoading;
 
@@ -59,11 +58,13 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isL
         className="relative group w-full aspect-square bg-dark-card rounded-2xl overflow-hidden border border-dark-border flex items-center justify-center"
       >
         {isLoading ? (
-          <div className="flex flex-col items-center text-center text-medium-text">
-            <LoadingSpinner />
-            <p className="mt-4 text-lg font-medium">{loadingMessage || 'Processing...'}</p>
-            {retryMessage && <p className="mt-2 text-sm text-yellow-400">{retryMessage}</p>}
-          </div>
+          <>
+            {imageUrl && <img src={imageUrl} alt={title} className="absolute inset-0 w-full h-full object-contain filter brightness-50" />}
+            <div className="relative z-10 flex flex-col items-center text-center text-medium-text">
+              <LoadingSpinner />
+              <p className="mt-4 text-lg font-medium">{loadingMessage || 'Processing...'}</p>
+            </div>
+          </>
         ) : imageUrl ? (
           <>
             <img 
