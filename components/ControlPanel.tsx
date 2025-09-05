@@ -19,6 +19,7 @@ interface ControlPanelProps {
   onStop: () => void;
   selectedEffects: EditEffect[];
   onStartProcessing: () => void;
+  retryMessage?: string | null;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({ 
@@ -35,16 +36,21 @@ export const ControlPanel: React.FC<ControlPanelProps> = React.memo(({
   onStop,
   selectedEffects,
   onStartProcessing,
+  retryMessage,
 }) => {
   const isEffectSelected = (effect: EditEffect) => selectedEffects.some(e => e.type === effect.type);
 
   return (
     <div className="relative bg-dark-card border border-dark-border rounded-2xl p-6">
       {isLoading && (
-        <div className="absolute inset-0 bg-dark-card/80 backdrop-blur-sm flex flex-col justify-center items-center z-10 rounded-2xl">
+        <div className="absolute inset-0 bg-dark-card/80 backdrop-blur-sm flex flex-col justify-center items-center z-10 rounded-2xl p-4 text-center">
           <LoadingSpinner />
           <p className="text-lg font-semibold mt-4 text-light-text">AI is generating...</p>
-          <p className="text-medium-text text-sm">This may take a moment.</p>
+          {retryMessage ? (
+            <p className="text-yellow-400 text-sm mt-2">{retryMessage}</p>
+          ) : (
+            <p className="text-medium-text text-sm">This may take a moment.</p>
+          )}
           <button 
             onClick={onStop}
             className="mt-4 px-6 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-dark-card focus:ring-red-400 transition-colors"

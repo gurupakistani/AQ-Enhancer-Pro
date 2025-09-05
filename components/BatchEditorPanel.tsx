@@ -15,10 +15,11 @@ interface BatchEditorPanelProps {
   onStop: () => void;
   selectedEffects: EditEffect[];
   onStartProcessing: () => void;
+  retryMessage: string | null;
 }
 
 export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
-  images, isLoading, onEdit, onClear, effects, aspectRatioEffects, onChatSubmit, onStop, selectedEffects, onStartProcessing
+  images, isLoading, onEdit, onClear, effects, aspectRatioEffects, onChatSubmit, onStop, selectedEffects, onStartProcessing, retryMessage
 }) => {
   const handleDummy = () => {};
 
@@ -38,6 +39,7 @@ export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
         onStop={onStop}
         selectedEffects={selectedEffects}
         onStartProcessing={onStartProcessing}
+        retryMessage={retryMessage}
       />
        <ChatPanel 
         onPromptSubmit={onChatSubmit}
@@ -55,6 +57,7 @@ export const BatchEditorPanel: React.FC<BatchEditorPanelProps> = React.memo(({
                 imageUrl={image.editedURL || image.originalURL}
                 isLoading={image.isLoading}
                 loadingMessage="Enhancing..."
+                retryMessage={image.isLoading ? retryMessage : null}
               />
               {image.error && (
                 <p className="mt-2 text-sm text-red-400">Error: {image.error}</p>

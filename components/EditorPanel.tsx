@@ -24,6 +24,7 @@ interface EditorPanelProps {
   onStop: () => void;
   selectedEffects: EditEffect[];
   onStartProcessing: () => void;
+  retryMessage: string | null;
 }
 
 export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
@@ -45,6 +46,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
   onStop,
   selectedEffects,
   onStartProcessing,
+  retryMessage,
 }) => {
   return (
     <div className="space-y-8">
@@ -55,6 +57,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
           imageUrl={editedImage}
           isLoading={isLoading}
           loadingMessage="AI is enhancing your image..."
+          retryMessage={retryMessage}
         />
       </div>
       <HistoryPanel
@@ -77,6 +80,7 @@ export const EditorPanel: React.FC<EditorPanelProps> = React.memo(({
         onStop={onStop}
         selectedEffects={selectedEffects}
         onStartProcessing={onStartProcessing}
+        retryMessage={retryMessage}
       />
       <ChatPanel 
         onPromptSubmit={onChatSubmit}

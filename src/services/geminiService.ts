@@ -7,15 +7,16 @@ if (!process.env.API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-const MAX_RETRIES = 5;
-const INITIAL_BACKOFF_MS = 5000;
+const MAX_RETRIES = 8;
+const INITIAL_BACKOFF_MS = 7500;
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const editImage = async (
   base64ImageData: string,
   mimeType: string,
-  prompt: string
+  prompt: string,
+  onRetry?: (attempt: number, delay: number) => void
 ): Promise<string> => {
   let lastError: Error | null = null;
 
@@ -58,16 +59,21 @@ export const editImage = async (
       lastError = error instanceof Error ? error : new Error(String(error));
       console.error(`Gemini API Error (Attempt ${attempt + 1}/${MAX_RETRIES}):`, lastError);
 
-      const isRateLimitError = lastError.message.includes("429") || lastError.message.toLowerCase().includes("resource_exhausted");
+      const isRateLimitError = lastError.message.includes("429") || lastError.message.toLowerCase().includes("resource_exhausted") || lastError.message.toLowerCase().includes("rate limit exceeded");
 
       if (isRateLimitError && attempt < MAX_RETRIES - 1) {
         const backoffTime = INITIAL_BACKOFF_MS * Math.pow(2, attempt);
         const jitter = backoffTime * 0.2 * (Math.random() - 0.5);
-        console.log(`Rate limit hit. Retrying in ${Math.round((backoffTime + jitter) / 1000)}s...`);
-        await delay(backoffTime + jitter);
+        const totalDelay = backoffTime + jitter;
+        
+        console.log(`Rate limit hit. Retrying in ${Math.round(totalDelay / 1000)}s...`);
+        if (onRetry) {
+          onRetry(attempt + 1, totalDelay);
+        }
+        await delay(totalDelay);
       } else {
         if (isRateLimitError) {
-          throw new Error(`The service is currently busy. Please try again in a few moments. (Rate limit exceeded after ${MAX_RETRIES} retries)`);
+          throw new Error(`The service is still busy after ${MAX_RETRIES} retries. This can happen on shared platforms due to high traffic. Please try again later.`);
         }
         throw new Error(`Failed to edit image: ${lastError.message}`);
       }

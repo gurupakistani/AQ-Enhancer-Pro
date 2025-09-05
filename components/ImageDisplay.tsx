@@ -11,9 +11,10 @@ interface ImageDisplayProps {
   imageUrl: string | null;
   isLoading?: boolean;
   loadingMessage?: string;
+  retryMessage?: string | null;
 }
 
-export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isLoading = false, loadingMessage }) => {
+export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isLoading = false, loadingMessage, retryMessage }) => {
   const isEdited = title.toLowerCase() === 'edited' || title.toLowerCase() === 'result';
   
   const [transform, setTransform] = useState({ scale: 1, x: 0, y: 0 });
@@ -118,6 +119,7 @@ export const ImageDisplay: React.FC<ImageDisplayProps> = ({ title, imageUrl, isL
           <div className="flex flex-col items-center text-center text-medium-text">
             <LoadingSpinner />
             <p className="mt-4 text-lg font-medium">{loadingMessage || 'Processing...'}</p>
+            {retryMessage && <p className="mt-2 text-sm text-yellow-400">{retryMessage}</p>}
           </div>
         ) : imageUrl ? (
           <>

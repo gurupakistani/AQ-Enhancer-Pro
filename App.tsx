@@ -15,6 +15,7 @@ const App: React.FC = () => {
   const [originalImageMime, setOriginalImageMime] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
   const [selectedEffects, setSelectedEffects] = useState<EditEffect[]>([]);
 
   const isCancelledRef = useRef(false);
@@ -25,6 +26,7 @@ const App: React.FC = () => {
     setCurrentHistoryIndex(-1);
     setOriginalImageMime(null);
     setError(null);
+    setRetryMessage(null);
     setIsLoading(false);
     setSelectedEffects([]);
     isCancelledRef.current = false;
@@ -82,10 +84,16 @@ const App: React.FC = () => {
   const handleStopProcessing = useCallback(() => {
     isCancelledRef.current = true;
     setIsLoading(false);
+    setRetryMessage(null);
     if(batchImages.length > 0) {
       setBatchImages(prev => prev.map(img => ({ ...img, isLoading: false })));
     }
   }, [batchImages.length]);
+
+  const handleRetry = useCallback((attempt: number, delay: number) => {
+      const delayInSeconds = Math.round(delay / 1000);
+      setRetryMessage(`Service is busy. Retrying in ${delayInSeconds}s...`);
+  }, []);
 
   const applySingleEdit = useCallback(async (prompt: string, effectType: HistoryEffect) => {
     const currentImageState = history[currentHistoryIndex];
@@ -97,13 +105,15 @@ const App: React.FC = () => {
     isCancelledRef.current = false;
     setIsLoading(true);
     setError(null);
+    setRetryMessage(null);
 
     try {
       const base64Data = currentImageState.image.split(',')[1];
-      const resultBase64 = await editImage(base64Data, originalImageMime, prompt);
+      const resultBase64 = await editImage(base64Data, originalImageMime, prompt, handleRetry);
       
       if (isCancelledRef.current) return;
-
+      
+      setRetryMessage(null);
       const newImageURL = `data:${originalImageMime};base64,${resultBase64}`;
       const newThumbnail = await createThumbnail(newImageURL);
       const newHistoryState: HistoryState = { 
@@ -117,68 +127,63 @@ const App: React.FC = () => {
       
       setHistory(newHistory);
       setCurrentHistoryIndex(newHistory.length - 1);
-      setSelectedEffects([]); // Clear selection after applying
+      setSelectedEffects([]);
 
     } catch (err) {
       if (isCancelledRef.current) return;
       const errorMessage = err instanceof Error ? err.message : "An unknown error occurred during image processing.";
-      setError(`Error: ${errorMessage}. Please try again.`);
+      setError(`Error: ${errorMessage}.`);
       console.error(err);
     } finally {
       if (!isCancelledRef.current) {
         setIsLoading(false);
       }
+      setRetryMessage(null);
     }
-  }, [history, currentHistoryIndex, originalImageMime]);
+  }, [history, currentHistoryIndex, originalImageMime, handleRetry]);
 
   const applyBatchEdit = useCallback(async (prompt: string) => {
     isCancelledRef.current = false;
     setIsLoading(true);
     setError(null);
+    setRetryMessage(null);
     setBatchImages(prev => prev.map(img => ({ ...img, isLoading: true, error: null })));
 
-    const CONCURRENCY_LIMIT = 1; // Process one by one to avoid rate limiting
     const imagesToProcess = [...batchImages];
     
-    for (let i = 0; i < imagesToProcess.length; i += CONCURRENCY_LIMIT) {
-        if (isCancelledRef.current) break;
-        
-        const chunk = imagesToProcess.slice(i, i + CONCURRENCY_LIMIT);
-        
-        const editPromises = chunk.map(image => 
-            editImage(image.base64, image.mimeType, prompt)
-                .then(resultBase64 => ({ id: image.id, result: `data:${image.mimeType};base64,${resultBase64}`, status: 'fulfilled' as const }))
-                .catch(error => ({ id: image.id, reason: error.message, status: 'rejected' as const }))
-        );
-
-        const results = await Promise.all(editPromises);
-        
+    for (const image of imagesToProcess) {
         if (isCancelledRef.current) break;
 
-        setBatchImages(prev => prev.map(image => {
-            const result = results.find(r => r.id === image.id);
-            if (result && result.status === 'fulfilled') {
-                return { ...image, editedURL: result.result, isLoading: false };
-            }
-            if (result && result.status === 'rejected') {
-                return { ...image, error: result.reason, isLoading: false };
-            }
-            return image;
-        }));
+        try {
+            const resultBase64 = await editImage(image.base64, image.mimeType, prompt, handleRetry);
+            if (isCancelledRef.current) break;
 
-        // Add a small delay between requests to avoid hitting rate limits in batch mode
-        if (i + CONCURRENCY_LIMIT < imagesToProcess.length && !isCancelledRef.current) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            setBatchImages(prev => prev.map(img => 
+                img.id === image.id ? { ...img, editedURL: `data:${image.mimeType};base64,${resultBase64}`, isLoading: false } : img
+            ));
+        } catch (error) {
+            if (isCancelledRef.current) break;
+            const errorMessage = error instanceof Error ? error.message : "Unknown error";
+            setBatchImages(prev => prev.map(img => 
+                img.id === image.id ? { ...img, error: errorMessage, isLoading: false } : img
+            ));
+        } finally {
+            setRetryMessage(null);
+        }
+
+        if (imagesToProcess.indexOf(image) < imagesToProcess.length - 1 && !isCancelledRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 3000));
         }
     }
     
     setIsLoading(false);
-    setSelectedEffects([]); // Clear selection after applying
-    if(isCancelledRef.current) {
+    setSelectedEffects([]);
+    if (isCancelledRef.current) {
       setBatchImages(prev => prev.map(img => ({ ...img, isLoading: false })));
     }
 
-  }, [batchImages]);
+  }, [batchImages, handleRetry]);
+
 
   const handlePresetEffect = useCallback((effect: EditEffect) => {
     setSelectedEffects(prev => {
@@ -255,6 +260,7 @@ const App: React.FC = () => {
             onStop={handleStopProcessing}
             selectedEffects={selectedEffects}
             onStartProcessing={handleStartProcessing}
+            retryMessage={retryMessage}
           />
         ) : (
           <EditorPanel
@@ -276,6 +282,7 @@ const App: React.FC = () => {
             onStop={handleStopProcessing}
             selectedEffects={selectedEffects}
             onStartProcessing={handleStartProcessing}
+            retryMessage={retryMessage}
           />
         )}
         {error && !isLoading && (
